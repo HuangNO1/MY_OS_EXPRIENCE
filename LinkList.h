@@ -46,28 +46,28 @@ typedef struct Page *PagesLinkList;
 typedef struct Process *ProcessesLinkList;
 
 // 初始化 Page
-int InitPageList(PagesLinkList &PageL)
+int InitPageList(PagesLinkList *PageL)
 {
     // 產生頭指針，並將 ProcessL 指向 此頭指針
-    PageL = (PagesLinkList)malloc(sizeof(Page));
+    *PageL = (PagesLinkList)malloc(sizeof(Page));
     // 如果存儲分配失敗
-    if (PageL == NULL)
+    if (*PageL == NULL)
     {
         printf("Init process list fail.");
         return ERROR;
     }
     // next 的指針域為空
-    (PageL)->next = NULL;
+    (*PageL)->next = NULL;
     printf("Init process list success.");
     return OK;
 }
 
 // 銷毀 Page 鏈表
-void DestoryPageList(PagesLinkList &PageL)
+void DestoryPageList(PagesLinkList *PageL)
 {
     PagesLinkList p, q;
     // p 指向第一個結點
-    p = PageL->next;
+    p = (*PageL)->next;
     // 沒到表尾
     while (p)
     {
@@ -76,15 +76,15 @@ void DestoryPageList(PagesLinkList &PageL)
         p = q;
     }
     // 釋放頭結點空間
-    free(PageL);
+    free(*PageL);
 }
 
 // 清除 Page 鏈表
-int ClearPageList(PagesLinkList &PageL)
+int ClearPageList(PagesLinkList *PageL)
 {
     PagesLinkList p, q;
     // 指向第一個結點
-    p = PageL->next;
+    p = (*PageL)->next;
     // 沒到表尾
     while (p)
     {
@@ -92,7 +92,7 @@ int ClearPageList(PagesLinkList &PageL)
         free(p);
         p = q;
     }
-    PageL->next = NULL;
+    (*PageL)->next = NULL;
     return OK;
 }
 
@@ -115,18 +115,18 @@ int PageListLength(PagesLinkList PageL) {
 }
 
 // 初始化 ProcessList
-int InitProcessList(ProcessesLinkList &ProcessL)
+int InitProcessList(ProcessesLinkList *ProcessL)
 {
     // 產生頭指針，並將 ProcessL 指向 此頭指針
-    ProcessL = (ProcessesLinkList)malloc(sizeof(Process));
+    *ProcessL = (ProcessesLinkList)malloc(sizeof(Process));
     // 如果存儲分配失敗
-    if (ProcessL == NULL)
+    if (*ProcessL == NULL)
     {
         printf("Init process list fail.");
         return ERROR;
     }
     // next 的指針域為空
-    (ProcessL)->next = NULL;
+    (*ProcessL)->next = NULL;
     printf("Init process list success.");
     return OK;
 }
