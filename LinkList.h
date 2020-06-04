@@ -26,6 +26,10 @@ typedef struct Page
     int frameNumber;
     // 外存地址
     int externalStorageAddress;
+    // 判斷使是要放到虛擬內存跑
+    int valid;
+    // 狀態 - 判斷 該頁面是否 未完成(0) 完成(1)
+    int status;
     // next
     struct Page *next;
 } Page, *PagesLinkList;
@@ -42,6 +46,8 @@ typedef struct Process
     int status;
     // 執行長度 - 表示該進程的執行進度，執行
     int length;
+    // 缺頁次數
+    int res;
     // next
     struct Process *next;
 } Process, *ProcessesLinkList;
@@ -119,13 +125,13 @@ int PageListLength(PagesLinkList PageL)
 }
 
 // 插入新的 Page
-int PageListInsert(PagesLinkList PageL, int index, int flag, int frameNumber, int externalStorageAddress)
+int PageListInsert(PagesLinkList PageL, int index, int flag, int frameNumber, int externalStorageAddress, int valid, int status)
 {
     PagesLinkList p, s;
     p = PageL;
     int j = 0;
     // 尋找 index - 1 的結點
-    while(p && j < index - 1)
+    while (p && j < index - 1)
     {
         p = (p)->next;
         j += 1;
@@ -137,13 +143,15 @@ int PageListInsert(PagesLinkList PageL, int index, int flag, int frameNumber, in
     }
     s = (PagesLinkList)malloc(sizeof(Page));
     // 賦值
-    (s)->index = index;
-    (s)->flag = flag;
-    (s)->frameNumber = frameNumber;
-    (s)->externalStorageAddress = externalStorageAddress;
+    s->index = index;
+    s->flag = flag;
+    s->frameNumber = frameNumber;
+    s->externalStorageAddress = externalStorageAddress;
+    s->valid = valid;
+    s->status = status;
     // next
-    (s)->next = (p)->next;
-    (p)->next = s;
+    s->next = p->next;
+    p->next = s;
     printf("\nInsert page success.\n");
     return OK;
 }
@@ -208,7 +216,7 @@ int ProcessListEmpty(ProcessesLinkList ProcessL)
 }
 
 // 返回 ProcessL 鏈表長度
-int ProcessLListLength(ProcessesLinkList ProcessL)
+int ProcessListLength(ProcessesLinkList ProcessL)
 {
     int length = 0;
     ProcessesLinkList p = ProcessL->next;
@@ -227,7 +235,7 @@ int ProcessListInsert(ProcessesLinkList ProcessL, int index, int priority, int s
     p = ProcessL;
     int j = 0;
     // 尋找 index - 1 的結點
-    while(p && j < index - 1)
+    while (p && j < index - 1)
     {
         p = (p)->next;
         j += 1;
@@ -239,12 +247,13 @@ int ProcessListInsert(ProcessesLinkList ProcessL, int index, int priority, int s
     }
     s = (ProcessesLinkList)malloc(sizeof(Process));
     // 賦值
-    (s)->index = index;
-    (s)->length = 0;
-    (s)->priority = priority;
-    (s)->status = status;
-    (s)->pagesLinkList = PageL;
+    s->index = index;
+    s->length = 0;
+    s->priority = priority;
+    s->status = status;
+    s->pagesLinkList = PageL;
+    s->res = 0;
     // next
-    (s)->next = (p)->next;
-    (p)->next = s;
+    s->next = p->next;
+    p->next = s;
 }
