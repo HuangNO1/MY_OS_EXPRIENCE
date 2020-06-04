@@ -64,36 +64,38 @@ int InitPageList(PagesLinkList *PageL)
 }
 
 // 銷毀 Page 鏈表
-void DestoryPageList(PagesLinkList *PageL)
+void DestoryPageList(PagesLinkList PageL)
 {
-    PagesLinkList *p, *q;
+    PagesLinkList p, q;
     // p 指向第一個結點
-    *p = (*PageL)->next;
+    p = (PageL)->next;
     // 沒到表尾
     while (p)
     {
-        *q = (*p)->next;
-        free(*p);
-        *p = *q;
+        q = (p)->next;
+        free(p);
+        p = q;
     }
     // 釋放頭結點空間
-    free(*PageL);
+    free(PageL);
+    printf("\nDestory page success.\n");
 }
 
 // 清除 Page 鏈表
-int ClearPageList(PagesLinkList *PageL)
+int ClearPageList(PagesLinkList PageL)
 {
-    PagesLinkList *p, *q;
+    PagesLinkList p, q;
     // 指向第一個結點
-    *p = (*PageL)->next;
+    p = (PageL)->next;
     // 沒到表尾
-    while (*p)
+    while (p)
     {
-        *q = (*p)->next;
-        free(*p);
-        *p = *q;
+        q = (p)->next;
+        free(p);
+        p = q;
     }
-    (*PageL)->next = NULL;
+    (PageL)->next = NULL;
+    printf("\nClear page success.\n");
     return OK;
 }
 
@@ -116,6 +118,38 @@ int PageListLength(PagesLinkList PageL)
     return length;
 }
 
+// 插入新的 Page
+int PageListInsert(PagesLinkList PageL, int index, int flag, int frameNumber, int externalStorageAddress)
+{
+    PagesLinkList p, s;
+    p = PageL;
+    int j = 0;
+    // 尋找 index - 1 的結點
+    while(p && j < index - 1)
+    {
+        p = (p)->next;
+        j += 1;
+    }
+    // 第 i 個元素不存在
+    if (!p || j > index - 1)
+    {
+        return ERROR;
+    }
+    s = (PagesLinkList)malloc(sizeof(Page));
+    // 賦值
+    (s)->index = index;
+    (s)->flag = flag;
+    (s)->frameNumber = frameNumber;
+    (s)->externalStorageAddress = externalStorageAddress;
+    // next
+    (s)->next = (p)->next;
+    (p)->next = s;
+    printf("\nInsert page success.\n");
+    return OK;
+}
+
+// -------------------------------------------------------------------
+
 // 初始化 ProcessList
 int InitProcessList(ProcessesLinkList *ProcessL)
 {
@@ -134,36 +168,36 @@ int InitProcessList(ProcessesLinkList *ProcessL)
 }
 
 // 銷毀 Processes 鏈表
-void DestoryProcessList(ProcessesLinkList *ProcessL)
+void DestoryProcessList(ProcessesLinkList ProcessL)
 {
-    ProcessesLinkList *p, *q;
+    ProcessesLinkList p, q;
     // p 指向第一個結點
-    *p = (*ProcessL)->next;
+    p = (ProcessL)->next;
     // 沒到表尾
-    while (*p)
+    while (p)
     {
-        *q = (*p)->next;
-        free(*p);
-        *p = *q;
+        q = (p)->next;
+        free(p);
+        p = q;
     }
     // 釋放頭結點空間
-    free(*ProcessL);
+    free(ProcessL);
 }
 
 // 清除 ProcessL 鏈表
-int ClearPageList(ProcessesLinkList *ProcessL)
+int ClearProcessList(ProcessesLinkList ProcessL)
 {
-    ProcessesLinkList *p, *q;
+    ProcessesLinkList p, q;
     // 指向第一個結點
-    *p = (*ProcessL)->next;
+    p = (ProcessL)->next;
     // 沒到表尾
-    while (*p)
+    while (p)
     {
-        *q = (*p)->next;
-        free(*p);
-        *p = *q;
+        q = (p)->next;
+        free(p);
+        p = q;
     }
-    (*ProcessL)->next = NULL;
+    (ProcessL)->next = NULL;
     return OK;
 }
 
@@ -187,30 +221,30 @@ int ProcessLListLength(ProcessesLinkList ProcessL)
 }
 
 // 插入新的 進程
-int ProcessListInsert(ProcessesLinkList *ProcessL, int index, int priority, int status, PagesLinkList *PageL )
+int ProcessListInsert(ProcessesLinkList ProcessL, int index, int priority, int status, PagesLinkList PageL)
 {
-    ProcessesLinkList *p, *s;
+    ProcessesLinkList p, s;
     p = ProcessL;
     int j = 0;
     // 尋找 index - 1 的結點
-    while(*p && j < index - 1)
+    while(p && j < index - 1)
     {
-        *p = (*p)->next;
+        p = (p)->next;
         j += 1;
     }
     // 第 i 個元素不存在
-    if (!*p || j > index - 1)
+    if (!p || j > index - 1)
     {
         return ERROR;
     }
-    *s = (ProcessesLinkList)malloc(sizeof(Process));
+    s = (ProcessesLinkList)malloc(sizeof(Process));
     // 賦值
-    (*s)->index = index;
-    (*s)->length = 0;
-    (*s)->priority = priority;
-    (*s)->status = status;
-    (*s)->pagesLinkList = *PageL;
+    (s)->index = index;
+    (s)->length = 0;
+    (s)->priority = priority;
+    (s)->status = status;
+    (s)->pagesLinkList = PageL;
     // next
-    (*s)->next = (*p)->next;
-    (*p)->next = *s;
+    (s)->next = (p)->next;
+    (p)->next = s;
 }
