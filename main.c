@@ -25,6 +25,188 @@ ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL)
     return max;
 }
 
+// CLOCK
+void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList VirtualM, int *record, int *recordIndex)
+{
+    
+    
+    // clock 調頁算法
+    int sum = PageListLength(PhysicalM) + PageListLength(VirtualM);
+    // 頁表是否已被執行，如果沒被執行就填入
+    if (q->status == FALSE)
+    {
+        // 頁表沒裝滿
+        if (sum < 5)
+        {
+            // 填入
+            // 放入物理內存
+            if (q->valid == TRUE)
+            {
+                // flag 輸入 1 表示修改過，status 設成 TRUE 表示執行過
+                PageListInsert(PhysicalM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
+                q->status = TRUE;
+            }
+            // 放入虛擬內存
+            else
+            {
+                // flag 輸入 1
+                PageListInsert(VirtualM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
+                q->status = TRUE;
+            }
+            // 填入紀錄
+            for (int i = 0; i < PageLength; i++)
+            {
+                if (record[i] == 0)
+                {
+                    // 紀錄 frameNumber
+                    record[i] = q->frameNumber;
+                    break;
+                }
+            }
+        }
+        // 已經裝滿了檢查是否 下一個 頁訪問 已在內存裡面
+        else if (sum == 5)
+        {
+            int isExist = FALSE;
+
+            PagesLinkList checkPhysical, checkVirtual;
+
+            checkPhysical = PhysicalM->next;
+            checkVirtual = VirtualM->next;
+
+            // 判斷該頁訪問是否已經在頁表裡面
+            int flag = FALSE;
+            for (int i = 0; i < PageLength; i++)
+            {
+                if (q->frameNumber == record[i])
+                {
+                    // 有存在
+                    flag = TRUE;
+                    // 保存當前尋找位置
+                    *recordIndex = i;
+                    break;
+                }
+            }
+
+            // init
+            checkPhysical = PhysicalM->next;
+            checkVirtual = VirtualM->next;
+            // 如果已經在了
+            if (flag)
+            {
+                // 將頁的 flag 設為 1 表示修改過
+                // 遍歷每個內存
+                while (checkPhysical)
+                {
+                    if (checkPhysical->frameNumber == q->frameNumber)
+                    {
+                        checkPhysical->flag = 1;
+                    }
+                    checkPhysical = checkPhysical->next;
+                }
+                while (checkVirtual)
+                {
+                    if (checkVirtual->frameNumber == q->frameNumber)
+                    {
+                        checkVirtual->flag = 1;
+                    }
+                    checkVirtual = checkVirtual->next;
+                }
+                // 表示已經訪問
+                q->status = TRUE;
+            }
+            // 不存在，產生 [斷頁]
+            else
+            {
+                // 缺頁次數加一
+                p->res += 1;
+                // 無限直到找到可以移出去的頁
+                int findRemove = FALSE;
+                // 從 recordIndex 的地方開始找
+                for (int i = *recordIndex; i < PageLength; i++)
+                {
+                    // init
+                    checkPhysical = PhysicalM->next;
+                    checkVirtual = VirtualM->next;
+                    // 先找到 對應頁表的頁
+                    while (checkPhysical)
+                    {
+                        if (record[i] == checkPhysical->frameNumber)
+                        {
+                            // 修改位 TRUE -> FALSE
+                            if (checkPhysical->flag == TRUE)
+                            {
+                                // 改變狀態
+                                checkPhysical->flag == FALSE;
+                            }
+                            else
+                            {
+                                // 有找到 flag 位為 0 的頁
+                                // 產生頁置換
+                                // 修改資料
+                                checkPhysical->flag = 1;
+                                checkPhysical->frameNumber = q->frameNumber;
+                                checkPhysical->externalStorageAddress = q->externalStorageAddress;
+
+                                *recordIndex = i;
+                                record[i] = checkPhysical->frameNumber;
+                                // 將 find Remove 設為 TRUE 結束循環
+                                findRemove = TRUE;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            checkPhysical = checkPhysical->next;
+                        }
+                    }
+                    while (checkVirtual)
+                    {
+                        // 修改位 TRUE -> FALSE
+                        if (record[i] == checkVirtual->frameNumber)
+                        {
+                            if (checkVirtual->flag == TRUE)
+                            {
+                                // 改變狀態
+                                checkVirtual->flag == FALSE;
+                            }
+                            else
+                            {
+                                // 有找到 flag 位為 0 的頁
+                                // 產生頁置換
+                                // 修改資料
+                                checkVirtual->flag = 1;
+                                checkVirtual->frameNumber = q->frameNumber;
+                                checkVirtual->externalStorageAddress = q->externalStorageAddress;
+
+                                *recordIndex = i;
+                                record[i] = checkPhysical->frameNumber;
+                                // 將 find Remove 設為 TRUE 結束循環
+                                findRemove = TRUE;
+                                break;
+                            }
+                        }
+                        else
+                        {
+                            checkVirtual = checkVirtual->next;
+                        }
+                    }
+                    // 如果有置換成功
+                    if (findRemove == TRUE)
+                    {
+                        break;
+                    }
+                    // 如果沒有找到置換點
+                    if (i == PageLength - 1)
+                    {
+                        i = 0;
+                    }
+                }
+            }
+        }
+    }
+}
+
 // 時間片輪詢法 進程調度
 void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, PagesLinkList VirtualM)
 {
@@ -35,118 +217,17 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     p = findMaxPriority(ProcessL);
     // 利用頁表最大長度將 優先級最大的進程 頁 填入 Memory 執行
     // 限制頁表的大小
-    int i = 0;
-    q = p->pagesLinkList;
-
     // 用來記錄頁表
     int record[PageLength] = {};
     // 用來判斷 Clock 演算法調度的檢查位置
     int recordIndex = 0;
+    q = p->pagesLinkList->next;
     // 開始進行執行的進程
     while (TRUE)
     {
-        int sum = PageListLength(PhysicalM) + PageListLength(VirtualM);
-        // 頁表是否已被執行，如果沒被執行就填入
-        if (q->status == FALSE)
-        {
-            // 頁表沒裝滿
-            if (sum < 5)
-            {
-                // 填入
-                // 放入物理內存
-                if (q->valid == TRUE)
-                {
-                    // flag 輸入 1 表示修改過，status 設成 TRUE 表示執行過
-                    PageListInsert(PhysicalM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
-                    q->status = TRUE;
-                }
-                // 放入虛擬內存
-                else
-                {
-                    // flag 輸入 1
-                    PageListInsert(VirtualM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
-                    q->status = TRUE;
-                }
-                // 填入紀錄
-                for (int i = 0; i < PageLength; i++)
-                {
-                    if (record[i] == 0)
-                    {
-                        // 紀錄 frameNumber
-                        record[i] = q->frameNumber;
-                        break;
-                    }
-                }
-            }
-            // 已經裝滿了檢查是否 下一個 頁訪問 已在內存裡面
-            else if (sum == 5)
-            {
-                int isExist = FALSE;
-
-                PagesLinkList checkPhysical, checkVirtual;
-
-                checkPhysical = PhysicalM->next;
-                checkVirtual = VirtualM->next;
-
-                // 判斷該頁訪問是否已經在頁表裡面
-                int flag = FALSE;
-                for (int i = 0; i < PageLength; i++)
-                {
-                    if (q->frameNumber == record[i])
-                    {
-                        // 有存在
-                        flag = TRUE;
-                        // 保存當前尋找位置
-                        recordIndex = i;
-                        break;
-                    }
-                }
-                // 如果已經在了
-                if (flag)
-                {
-                    // 將頁的 flag 設為 1 表示修改過
-                    // 遍歷每個內存
-                    while (checkPhysical)
-                    {
-                        if(checkPhysical->frameNumber == q->frameNumber)
-                        {
-                            checkPhysical->flag = 1;
-                        }
-                        checkPhysical = checkPhysical->next;
-                    }
-                    while (checkVirtual)
-                    {
-                        if(checkVirtual->frameNumber == q->frameNumber)
-                        {
-                            checkVirtual->flag = 1;
-                        }
-                        checkVirtual = checkVirtual->next;
-                    }
-                    // 表示已經訪問
-                    q->status = TRUE;
-                }
-                // 不存在，產生 [斷頁]
-                else
-                {
-                    // 缺頁次數加一
-                    p->res += 1;
-                    // 無限直到找到可以移出去的
-                    while (TRUE)
-                    {
-                        // 從 recordIndex 的地方開始找
-                        for (int i = recordIndex; i < PageLength; i++)
-                        {
-                            if (checkPhysical->flag == TRUE)
-                            {
-                                // 改變狀態
-                                checkPhysical->flag == FALSE;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+        // clock 調度頁
+        clock_page_mamager(q, PhysicalM, VirtualM, record, &recordIndex);
+        // 執行一次後
         // next
         q = q->next;
     }
