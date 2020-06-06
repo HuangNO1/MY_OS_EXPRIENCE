@@ -185,9 +185,13 @@ void DestoryProcessList(ProcessesLinkList ProcessL)
     while (p)
     {
         q = (p)->next;
+        // 也釋放 pages
+        DestoryPageList(p->pagesLinkList);
         free(p);
         p = q;
     }
+    // 釋放頭結點的 Page
+    free(ProcessL->pagesLinkList);
     // 釋放頭結點空間
     free(ProcessL);
 }
@@ -202,6 +206,8 @@ int ClearProcessList(ProcessesLinkList ProcessL)
     while (p)
     {
         q = (p)->next;
+        // 也釋放 pages
+        DestoryPageList(p->pagesLinkList);
         free(p);
         p = q;
     }

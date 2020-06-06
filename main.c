@@ -25,11 +25,32 @@ ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL)
     return max;
 }
 
-// CLOCK
-void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList VirtualM, int *record, int *recordIndex)
+// 改變優先度
+void change_priority(ProcessesLinkList ProcessL, ProcessesLinkList currentPL)
 {
-    
-    
+    // 指向頭節點
+    ProcessesLinkList p = ProcessL->next;
+    // 將目前的優先度減一
+    if (currentPL->status != FINISHED)
+    {
+        currentPL->priority -= 1;
+    }
+    // 將每個 HANG 的 Process 增加 1
+    while (p)
+    {
+        if (p->status == HANG)
+        {
+            p->priority += 1;
+        }
+        p = p->next;
+    }
+}
+
+// CLOCK
+void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList VirtualM, int *record, int *recordIndex)
+{
+    // 利用頁表最大長度將 優先級最大的進程 頁 填入 Memory 執行
+    // 限制頁表的大小
     // clock 調頁算法
     int sum = PageListLength(PhysicalM) + PageListLength(VirtualM);
     // 頁表是否已被執行，如果沒被執行就填入
@@ -45,6 +66,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                 // flag 輸入 1 表示修改過，status 設成 TRUE 表示執行過
                 PageListInsert(PhysicalM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
                 q->status = TRUE;
+                // 完成度 +1
+                p->length += 1;
             }
             // 放入虛擬內存
             else
@@ -52,6 +75,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                 // flag 輸入 1
                 PageListInsert(VirtualM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
                 q->status = TRUE;
+                // 完成度 +1
+                p->length += 1;
             }
             // 填入紀錄
             for (int i = 0; i < PageLength; i++)
@@ -101,6 +126,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                     if (checkPhysical->frameNumber == q->frameNumber)
                     {
                         checkPhysical->flag = 1;
+                        // 完成度 +1
+                        p->length += 1;
                     }
                     checkPhysical = checkPhysical->next;
                 }
@@ -109,6 +136,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                     if (checkVirtual->frameNumber == q->frameNumber)
                     {
                         checkVirtual->flag = 1;
+                        // 完成度 +1
+                        p->length += 1;
                     }
                     checkVirtual = checkVirtual->next;
                 }
@@ -152,6 +181,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                                 record[i] = checkPhysical->frameNumber;
                                 // 將 find Remove 設為 TRUE 結束循環
                                 findRemove = TRUE;
+                                // 完成度 +1
+                                p->length += 1;
                                 break;
                             }
                         }
@@ -183,6 +214,8 @@ void clock_page_mamager(PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList 
                                 record[i] = checkPhysical->frameNumber;
                                 // 將 find Remove 設為 TRUE 結束循環
                                 findRemove = TRUE;
+                                // 完成度 +1
+                                p->length += 1;
                                 break;
                             }
                         }
@@ -215,8 +248,9 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
 
     // 先得到最大的優先級
     p = findMaxPriority(ProcessL);
-    // 利用頁表最大長度將 優先級最大的進程 頁 填入 Memory 執行
-    // 限制頁表的大小
+    // 設定 status 為 運行中
+    p->status = EXECUTE;
+
     // 用來記錄頁表
     int record[PageLength] = {};
     // 用來判斷 Clock 演算法調度的檢查位置
@@ -225,11 +259,60 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     // 開始進行執行的進程
     while (TRUE)
     {
+        // 判斷所有進程是否都已經完成了
+        ProcessesLinkList checkFinish;
+        checkFinish = ProcessL->next;
+        int flag = FALSE;
+        while (checkFinish)
+        {
+            // 如果找到任何沒有完成的
+            if (checkFinish->status != FINISHED)
+            {
+                flag = TRUE;
+            }
+        }
+        // 都完成了，全部中止
+        if (flag == FALSE)
+        {
+            // 刪除所有進程
+            ClearProcessList(ProcessL);
+            break;
+        }
+
         // clock 調度頁
-        clock_page_mamager(q, PhysicalM, VirtualM, record, &recordIndex);
-        // 執行一次後
-        // next
-        q = q->next;
+        clock_page_mamager(p, q, PhysicalM, VirtualM, record, &recordIndex);
+        // 先判斷是不是已經完成了
+        // 如果變量相同
+        if (p->length == PageListLength(p->pagesLinkList))
+        {
+            // 表示該進程已經完成了
+            // 改變 status
+            p->status = FINISHED;
+        }
+
+        // 先改變優先度
+        change_priority(ProcessL, p);
+        // 獲取當前最大優先度進程
+        ProcessesLinkList pSwap;
+        pSwap = findMaxPriority(ProcessL);
+        // 如果獲取的新的最大優先度進程與當前進程不一樣
+        if (pSwap->index != p->index)
+        {
+            // 掛起
+            if (p->status != FINISHED)
+            {
+                p->status == HANG;
+            }
+            p = pSwap;
+            p->status = EXECUTE;
+            q = p->pagesLinkList->next;
+        }
+        // 獲得的優先度進程與當前的一樣
+        else
+        {
+            // next
+            q = q->next;
+        }
     }
 
     // 調整 優先度
