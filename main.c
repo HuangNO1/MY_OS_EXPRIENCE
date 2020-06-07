@@ -5,23 +5,45 @@
 #define PageLength 4
 
 // 找到 [最大優先級] 且 [未執行完成] 的進程並返回
-ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL)
+ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL, ProcessesLinkList currentP)
 {
     ProcessesLinkList p, max;
     // 指向第一個節點
     p = ProcessL->next;
 
     int maxPriority = 0;
-    // 找出優先度最高的進程
-    while (p)
+    // 如果 current P 有指向有分配空間的 進程
+    if (currentP)
     {
-        if (p->priority > maxPriority && p->status != FINISHED)
+        maxPriority = currentP->priority;
+        max = currentP;
+        // 找出優先度最高的進程
+        while (p)
         {
-            // 將指針指向最優先級最大的
-            max = p;
+            if (p->priority > currentP->priority && p->status != FINISHED)
+            {
+                // 將指針指向最優先級最大的
+                max = p;
+                maxPriority = p->priority;
+            }
+            p = p->next;
         }
-        p = p->next;
     }
+    else
+    {
+        // 找出優先度最高的進程
+        while (p)
+        {
+            if (p->priority > maxPriority && p->status != FINISHED)
+            {
+                // 將指針指向最優先級最大的
+                max = p;
+                maxPriority = p->priority;
+            }
+            p = p->next;
+        }
+    }
+
     return max;
 }
 
@@ -197,13 +219,22 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                     // 先找到 對應頁表的頁
                     while (checkPhysical)
                     {
+                        // printf("\n Debug checkPhysical\n");
+                        // for (int i = 0; i < PageLength; i++)
+                        // {
+                        //     printf("%d  ", record[i]);
+                        // }
+                        // printf("\n\n");
+                        // printf("record[%d]: %d, frameNumber: %d\n",i , record[i], checkPhysical->frameNumber);
+                        // printf("adjust : %d", record[i] == checkPhysical->frameNumber);
                         if (record[i] == checkPhysical->frameNumber)
                         {
                             // 修改位 TRUE -> FALSE
                             if (checkPhysical->flag == TRUE)
                             {
                                 // 改變狀態
-                                checkPhysical->flag == FALSE;
+                                checkPhysical->flag = FALSE;
+                                checkPhysical = checkPhysical->next;
                             }
                             else
                             {
@@ -223,7 +254,10 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 break;
                             }
                         }
-                        checkPhysical = checkPhysical->next;
+                        else if (record[i] != checkPhysical->frameNumber)
+                        {
+                            checkPhysical = checkPhysical->next;
+                        }
                     }
                     while (checkVirtual)
                     {
@@ -233,7 +267,8 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                             if (checkVirtual->flag == TRUE)
                             {
                                 // 改變狀態
-                                checkVirtual->flag == FALSE;
+                                checkVirtual->flag = FALSE;
+                                checkVirtual = checkVirtual->next;
                             }
                             else
                             {
@@ -253,7 +288,10 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 break;
                             }
                         }
-                        checkVirtual = checkVirtual->next;
+                        else if (record[i] != checkVirtual->frameNumber)
+                        {
+                            checkVirtual = checkVirtual->next;
+                        }
                     }
                     // 如果有置換成功
                     if (findRemove == TRUE)
@@ -263,12 +301,23 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                     // 如果沒有找到置換點
                     if (i == PageLength - 1)
                     {
-                        i = 0;
+                        i = -1;
                     }
                 }
             }
         }
     }
+}
+
+// 輸出 狀態
+void print_process_page(int *record, ProcessesLinkList p)
+{
+    printf("\ncurrent process: %d, priority: %d\n\npage list: ", p->index, p->priority);
+    for (int i = 0; i < PageLength; i++)
+    {
+        printf("%d  ", record[i]);
+    }
+    printf("\n\n");
 }
 
 // 時間片輪詢法 進程調度
@@ -290,12 +339,8 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     // 開始進行執行的進程
     while (TRUE)
     {
-        printf("\ncurrent process: %d\n\npage list: ", p->index);
-        for (int i = 0; i < PageLength; i++)
-        {
-            printf("%d  ", record[i]);
-        }
-        printf("\n\n");
+        printf("\nBefore");
+        print_process_page(record, p);
 
         // 都完成了，全部中止
         if (check_is_all_processes_finished(ProcessL) == TRUE)
@@ -307,6 +352,10 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
 
         // clock 調度頁
         clock_page_mamager(p, q, PhysicalM, VirtualM, record, &recordIndex);
+
+        printf("\nAfter");
+        print_process_page(record, p);
+
         // 先判斷是不是已經完成了
         // 如果變量相同
         if (p->length == PageListLength(p->pagesLinkList))
@@ -333,7 +382,7 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
         ProcessesLinkList pSwap;
         pSwap = findMaxPriority(ProcessL);
         // 如果獲取的新的最大優先度進程與當前進程不一樣
-        if (pSwap->index != p->index)
+        if (pSwap && pSwap->index != p->index)
         {
             // 掛起
             if (p->status != FINISHED)
@@ -346,6 +395,13 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
             // 將內存所有的 pages 退出
             ClearPageList(PhysicalM);
             ClearPageList(VirtualM);
+            // record 初始化
+            for (int i = 0; i < PageLength; i++)
+            {
+                record[i] = 0;
+            }
+
+            recordIndex = 0;
         }
         // 獲得的優先度進程與當前的一樣
         else
@@ -389,7 +445,9 @@ int main()
         {
             int priority = 0;
             int status = 0;
-            printf("Please enter the process's priority(int).\nInput -1 to stop create a new process.\npriority(int)-> ");
+            printf("Please enter the process's priority(int).\nInput -1 to stop create a new process.\n");
+
+            printf("Index : %d\npriority(int)-> ", processIndex);
 
             scanf("%d", &priority);
             // 如果輸入 -1 終止 while
