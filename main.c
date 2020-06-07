@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include "LinkList.h"
 #include <ctype.h>
-// 定義頁表長為 5
-#define PageLength 5
+// 定義頁表長為 4
+#define PageLength 4
 
 // 找到 [最大優先級] 且 [未執行完成] 的進程並返回
 ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL)
@@ -23,6 +23,66 @@ ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL)
         p = p->next;
     }
     return max;
+}
+
+// 用來檢查頁訪問是否已經在頁表了
+int check_is_already_in_page(PagesLinkList PhysicalM, PagesLinkList VirtualM, int *record, int *recordIndex, PagesLinkList q, ProcessesLinkList p)
+{
+    PagesLinkList checkPhysical, checkVirtual;
+
+    checkPhysical = PhysicalM->next;
+    checkVirtual = VirtualM->next;
+
+    // 判斷該頁訪問是否已經在頁表裡面
+    int flag = FALSE;
+    for (int i = 0; i < PageLength; i++)
+    {
+        if (q->frameNumber == record[i])
+        {
+            // 有存在
+            flag = TRUE;
+            // 保存當前尋找位置
+            *recordIndex = i;
+            break;
+        }
+    }
+
+    // init
+    checkPhysical = PhysicalM->next;
+    checkVirtual = VirtualM->next;
+    // 如果已經在了
+    if (flag)
+    {
+        // 將頁的 flag 設為 1 表示修改過
+        // 遍歷每個內存
+        while (checkPhysical)
+        {
+            if (checkPhysical->frameNumber == q->frameNumber)
+            {
+                checkPhysical->flag = 1;
+                // 完成度 +1
+                p->length += 1;
+            }
+            checkPhysical = checkPhysical->next;
+        }
+        while (checkVirtual)
+        {
+            if (checkVirtual->frameNumber == q->frameNumber)
+            {
+                checkVirtual->flag = 1;
+                // 完成度 +1
+                p->length += 1;
+            }
+            checkVirtual = checkVirtual->next;
+        }
+        // 表示已經訪問
+        q->status = TRUE;
+        return TRUE;
+    }
+    else
+    {
+        return FALSE;
+    }
 }
 
 // 改變優先度
@@ -46,6 +106,25 @@ void change_priority(ProcessesLinkList ProcessL, ProcessesLinkList currentPL)
     }
 }
 
+// 判斷所有進程是否都已經完成了
+int check_is_all_processes_finished(ProcessesLinkList ProcessL)
+{
+    ProcessesLinkList checkFinish;
+    checkFinish = ProcessL->next;
+    int flag = TRUE;
+    while (checkFinish)
+    {
+        // 如果找到任何沒有完成的
+        if (checkFinish->status != FINISHED)
+        {
+            flag = FALSE;
+            break;
+        }
+        checkFinish = checkFinish->next;
+    }
+    return (flag == TRUE) ? TRUE : FALSE;
+}
+
 // CLOCK
 void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList PhysicalM, PagesLinkList VirtualM, int *record, int *recordIndex)
 {
@@ -57,95 +136,53 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
     if (q->status == FALSE)
     {
         // 頁表沒裝滿
-        if (sum < 5)
+        if (sum < PageLength)
         {
-            // 填入
-            // 放入物理內存
-            if (q->valid == TRUE)
+            // 先判斷是否有重複的
+            int flag = check_is_already_in_page(PhysicalM, VirtualM, record, &recordIndex, q, p);
+
+            if (flag == FALSE)
             {
-                // flag 輸入 1 表示修改過，status 設成 TRUE 表示執行過
-                PageListInsert(PhysicalM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
-                q->status = TRUE;
-                // 完成度 +1
-                p->length += 1;
-            }
-            // 放入虛擬內存
-            else
-            {
-                // flag 輸入 1
-                PageListInsert(VirtualM, 0, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
-                q->status = TRUE;
-                // 完成度 +1
-                p->length += 1;
-            }
-            // 填入紀錄
-            for (int i = 0; i < PageLength; i++)
-            {
-                if (record[i] == 0)
+                // 填入
+                // 放入物理內存
+                if (q->valid == TRUE)
                 {
-                    // 紀錄 frameNumber
-                    record[i] = q->frameNumber;
-                    break;
+                    // flag 輸入 1 表示修改過，status 設成 TRUE 表示執行過
+                    PageListInsert(PhysicalM, 1, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
+                    q->status = TRUE;
+                    // 完成度 +1
+                    p->length += 1;
+                }
+                // 放入虛擬內存
+                else
+                {
+                    // flag 輸入 1
+                    PageListInsert(VirtualM, 1, 1, q->frameNumber, q->externalStorageAddress, q->valid, TRUE);
+                    q->status = TRUE;
+                    // 完成度 +1
+                    p->length += 1;
+                }
+                // 填入紀錄
+                for (int i = 0; i < PageLength; i++)
+                {
+                    if (record[i] == 0)
+                    {
+                        // 紀錄 frameNumber
+                        record[i] = q->frameNumber;
+                        break;
+                    }
                 }
             }
         }
         // 已經裝滿了檢查是否 下一個 頁訪問 已在內存裡面
-        else if (sum == 5)
+        else if (sum == PageLength)
         {
             int isExist = FALSE;
-
             PagesLinkList checkPhysical, checkVirtual;
-
-            checkPhysical = PhysicalM->next;
-            checkVirtual = VirtualM->next;
-
-            // 判斷該頁訪問是否已經在頁表裡面
-            int flag = FALSE;
-            for (int i = 0; i < PageLength; i++)
-            {
-                if (q->frameNumber == record[i])
-                {
-                    // 有存在
-                    flag = TRUE;
-                    // 保存當前尋找位置
-                    *recordIndex = i;
-                    break;
-                }
-            }
-
-            // init
-            checkPhysical = PhysicalM->next;
-            checkVirtual = VirtualM->next;
-            // 如果已經在了
-            if (flag)
-            {
-                // 將頁的 flag 設為 1 表示修改過
-                // 遍歷每個內存
-                while (checkPhysical)
-                {
-                    if (checkPhysical->frameNumber == q->frameNumber)
-                    {
-                        checkPhysical->flag = 1;
-                        // 完成度 +1
-                        p->length += 1;
-                    }
-                    checkPhysical = checkPhysical->next;
-                }
-                while (checkVirtual)
-                {
-                    if (checkVirtual->frameNumber == q->frameNumber)
-                    {
-                        checkVirtual->flag = 1;
-                        // 完成度 +1
-                        p->length += 1;
-                    }
-                    checkVirtual = checkVirtual->next;
-                }
-                // 表示已經訪問
-                q->status = TRUE;
-            }
             // 不存在，產生 [斷頁]
-            else
+            int flag = check_is_already_in_page(PhysicalM, VirtualM, record, &recordIndex, q, p);
+
+            if (flag == FALSE)
             {
                 // 缺頁次數加一
                 p->res += 1;
@@ -186,10 +223,7 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 break;
                             }
                         }
-                        else
-                        {
-                            checkPhysical = checkPhysical->next;
-                        }
+                        checkPhysical = checkPhysical->next;
                     }
                     while (checkVirtual)
                     {
@@ -219,10 +253,7 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 break;
                             }
                         }
-                        else
-                        {
-                            checkVirtual = checkVirtual->next;
-                        }
+                        checkVirtual = checkVirtual->next;
                     }
                     // 如果有置換成功
                     if (findRemove == TRUE)
@@ -259,20 +290,15 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     // 開始進行執行的進程
     while (TRUE)
     {
-        // 判斷所有進程是否都已經完成了
-        ProcessesLinkList checkFinish;
-        checkFinish = ProcessL->next;
-        int flag = FALSE;
-        while (checkFinish)
+        printf("\ncurrent process: %d\n\npage list: ", p->index);
+        for (int i = 0; i < PageLength; i++)
         {
-            // 如果找到任何沒有完成的
-            if (checkFinish->status != FINISHED)
-            {
-                flag = TRUE;
-            }
+            printf("%d  ", record[i]);
         }
+        printf("\n\n");
+
         // 都完成了，全部中止
-        if (flag == FALSE)
+        if (check_is_all_processes_finished(ProcessL) == TRUE)
         {
             // 刪除所有進程
             ClearProcessList(ProcessL);
@@ -288,10 +314,21 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
             // 表示該進程已經完成了
             // 改變 status
             p->status = FINISHED;
+            printf("\nThe %d process has finished.\n", p->index);
+            printf("Page break times: %d, rate: %.2f %%\n\n", p->res, (1 - p->res * 1.0 / p->length) * 100);
         }
 
         // 先改變優先度
         change_priority(ProcessL, p);
+
+        // 都完成了，全部中止
+        if (check_is_all_processes_finished(ProcessL) == TRUE)
+        {
+            // 刪除所有進程
+            ClearProcessList(ProcessL);
+            break;
+        }
+
         // 獲取當前最大優先度進程
         ProcessesLinkList pSwap;
         pSwap = findMaxPriority(ProcessL);
@@ -306,6 +343,9 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
             p = pSwap;
             p->status = EXECUTE;
             q = p->pagesLinkList->next;
+            // 將內存所有的 pages 退出
+            ClearPageList(PhysicalM);
+            ClearPageList(VirtualM);
         }
         // 獲得的優先度進程與當前的一樣
         else
@@ -390,6 +430,13 @@ int main()
             ProcessListInsert(Process, processIndex, priority, HANG, processPage);
             processIndex += 1;
         }
+
+        // 進行進程執行 時間片輪詢法調度
+        timing_task_scheduler(Process, PhysicalMemory, VirtualMemory);
+
+        // clear 所有
+        ClearPageList(PhysicalMemory);
+        ClearPageList(VirtualMemory);
 
         // 結尾
         printf("Do you want to try again? (y/n) -> ");

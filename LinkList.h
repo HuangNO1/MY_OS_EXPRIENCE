@@ -60,12 +60,12 @@ int InitPageList(PagesLinkList *PageL)
     // 如果存儲分配失敗
     if (*PageL == NULL)
     {
-        printf("Init page list fail.\n");
+        printf("\nInit page list fail.\n");
         return ERROR;
     }
     // next 的指針域為空
     (*PageL)->next = NULL;
-    printf("Init page list success.\n");
+    printf("\nInit page list success.\n");
     return OK;
 }
 
@@ -166,12 +166,12 @@ int InitProcessList(ProcessesLinkList *ProcessL)
     // 如果存儲分配失敗
     if (*ProcessL == NULL)
     {
-        printf("Init process list fail.\n");
+        printf("\nInit process list fail.\n");
         return ERROR;
     }
     // next 的指針域為空
     (*ProcessL)->next = NULL;
-    printf("Init process list success.\n");
+    printf("\nInit process list success.\n");
     return OK;
 }
 
@@ -194,6 +194,7 @@ void DestoryProcessList(ProcessesLinkList ProcessL)
     free(ProcessL->pagesLinkList);
     // 釋放頭結點空間
     free(ProcessL);
+    printf("\nDestory process list success.\n");
 }
 
 // 清除 ProcessL 鏈表
@@ -212,6 +213,7 @@ int ClearProcessList(ProcessesLinkList ProcessL)
         p = q;
     }
     (ProcessL)->next = NULL;
+    printf("\nClear process list success.\n");
     return OK;
 }
 
@@ -262,4 +264,5 @@ int ProcessListInsert(ProcessesLinkList ProcessL, int index, int priority, int s
     // next
     s->next = p->next;
     p->next = s;
+    printf("\nInsert into the process list successfully.\n");
 }
