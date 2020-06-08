@@ -12,8 +12,8 @@ ProcessesLinkList findMaxPriority(ProcessesLinkList ProcessL, ProcessesLinkList 
     p = ProcessL->next;
 
     int maxPriority = 0;
-    // 如果 current P 有指向有分配空間的 進程
-    if (currentP)
+    // 如果 current P 有指向有分配空間的 進程 且沒有完成
+    if (currentP != NULL && currentP->status != FINISHED)
     {
         maxPriority = currentP->priority;
         max = currentP;
@@ -120,7 +120,7 @@ void change_priority(ProcessesLinkList ProcessL, ProcessesLinkList currentPL)
     // 將每個 HANG 的 Process 增加 1
     while (p)
     {
-        if (p->status == HANG)
+        if (p != currentPL && p->status != FINISHED)
         {
             p->priority += 1;
         }
@@ -249,6 +249,8 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 record[i] = checkPhysical->frameNumber;
                                 // 將 find Remove 設為 TRUE 結束循環
                                 findRemove = TRUE;
+                                // 標記已完成
+                                q->status = TRUE;
                                 // 完成度 +1
                                 p->length += 1;
                                 break;
@@ -283,6 +285,8 @@ void clock_page_mamager(ProcessesLinkList p, PagesLinkList q, PagesLinkList Phys
                                 record[i] = checkPhysical->frameNumber;
                                 // 將 find Remove 設為 TRUE 結束循環
                                 findRemove = TRUE;
+                                // 標記已完成
+                                q->status = TRUE;
                                 // 完成度 +1
                                 p->length += 1;
                                 break;
@@ -327,7 +331,9 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     PagesLinkList q;
 
     // 先得到最大的優先級
-    p = findMaxPriority(ProcessL);
+    // 指定第一個值作為參照
+    p = ProcessL->next;
+    p = findMaxPriority(ProcessL, p);
     // 設定 status 為 運行中
     p->status = EXECUTE;
 
@@ -336,6 +342,10 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     // 用來判斷 Clock 演算法調度的檢查位置
     int recordIndex = 0;
     q = p->pagesLinkList->next;
+
+    // 用來判斷每幾秒變一次進程優先度
+    int i = 1;
+
     // 開始進行執行的進程
     while (TRUE)
     {
@@ -350,8 +360,19 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
             break;
         }
 
+        // 將 q 指向首個未完成訪問的 page
+        while (q)
+        {
+            if (q->status == FALSE)
+            {
+                break;
+            }
+            q = q->next;
+        }
+        
         // clock 調度頁
         clock_page_mamager(p, q, PhysicalM, VirtualM, record, &recordIndex);
+        i += 1;
 
         printf("\nAfter");
         print_process_page(record, p);
@@ -367,8 +388,11 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
             printf("Page break times: %d, rate: %.2f %%\n\n", p->res, (1 - p->res * 1.0 / p->length) * 100);
         }
 
-        // 先改變優先度
-        change_priority(ProcessL, p);
+        if (i % 5 == 0)
+        {
+            // 先改變優先度
+            change_priority(ProcessL, p);
+        }
 
         // 都完成了，全部中止
         if (check_is_all_processes_finished(ProcessL) == TRUE)
@@ -380,7 +404,7 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
 
         // 獲取當前最大優先度進程
         ProcessesLinkList pSwap;
-        pSwap = findMaxPriority(ProcessL);
+        pSwap = findMaxPriority(ProcessL, p);
         // 如果獲取的新的最大優先度進程與當前進程不一樣
         if (pSwap && pSwap->index != p->index)
         {
@@ -414,6 +438,7 @@ void timing_task_scheduler(ProcessesLinkList ProcessL, PagesLinkList PhysicalM, 
     // 調整 優先度
 }
 
+// 程式入口
 int main()
 {
     // 作為物理記憶體
